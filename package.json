@@ -8,8 +8,8 @@
     "build": "./node_modules/.bin/shadow-cljs compile main renderer",
     "release": "./node_modules/.bin/shadow-cljs release main renderer",
     "clean": "rm -rf resources/public/js/* && rm -rf target",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "pack": "npx electron-builder --dir",
+    "dist": "npx electron-builder"
   },
   "keywords": [],
   "author": "chimez <chimez@163.com>",
@@ -17,6 +17,7 @@
   "devDependencies": {
     "electron": "^2.0.18",
     "electron-builder": "^20.17.2",
+    "material-design-iconic-font": "^2.2.0",
     "node-sass": "^5.0.0",
     "source-map-support": "^0.4.18",
     "ws": "^3.2.0"
