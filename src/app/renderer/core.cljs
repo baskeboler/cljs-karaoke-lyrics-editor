@@ -1,24 +1,39 @@
 (ns app.renderer.core
-  (:require [reagent.core :as reagent]
+  (:require [reagent.core :refer [atom]]
+            [reagent.dom :refer [render]]
             [re-frame.core :as rf]
-            [clojure.string :as str]  
-            ["nedb" :as nedb]
-            [devtools.core :as devtools] 
-            [app.renderer.views :refer [ui]]
+            ;; [cljs.tools.reader :as reader]
+            ;; [clojure.string :as cstr]
+            ;; ["devtron" :as devtron]
             [app.renderer.subs]
             [app.renderer.events]
             [app.renderer.db]
-            ))
+            [app.renderer.views :refer [ui]]))
+;; [cljs.core.async :as a]))
+            ;; ["electron" :as electron]))
+;; (defonce electron (js/require "electron"))
+;; (defonce nedb (js/require "nedb"))
 
-(devtools/install!)       ;; we love https://github.com/binaryage/cljs-devtools
+;; (.install ^js devtron)       ;; we love https://github.com/binaryage/c  js-devtools)
+
 (enable-console-print!)
+
+
+;; (defn read-file  [f]
+;;   (if (.existsSync ^js fs f)
+;;     (let [data  (.readFileSync ^js fs f "utf8")
+;;           song-map (reader/read-stri,sNng data)]
+;;       song-map)))
+
+
+;; (def ^js ipc-renderer (-> electron (.-ipcRenderer)))
 
 ;; -- Entry Point -------------------------------------------------------------
 
-(defn ^:export init
+(defn ^:export init!
   []
-  (rf/dispatch-sync [:initialize])  
-  (reagent/render [app.renderer.views/ui]           
-                  (js/document.getElementById "app-container")))
+  (rf/dispatch-sync [:initialize])
+  (render [app.renderer.views/ui]
+          (js/document.getElementById "app-container")))
 
-(init)
+(init!)

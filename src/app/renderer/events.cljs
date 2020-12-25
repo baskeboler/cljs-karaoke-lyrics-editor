@@ -1,7 +1,8 @@
 (ns app.renderer.events
   (:require
-    [re-frame.core  :as rf :refer [reg-event-db reg-event-fx inject-cofx path after]]
-    [cljs.spec.alpha :as s]))
+   [re-frame.core  :as rf :refer [reg-event-db reg-event-fx inject-cofx path after]]
+   [clj-karaoke.lyrics-frame :as lf]
+   [cljs.spec.alpha :as s]))
 
 
 
@@ -10,8 +11,10 @@
 (rf/reg-event-db              ;; sets up initial application state
                  :initialize                 ;; usage:  (dispatch [:initialize])
                  (fn [_ _]                   ;; the two parameters are not important here, so use _
-                   {:time (js/Date.)         ;; What it returns becomes the new application state
-                    :time-color "#f88"}))    ;; so the application state will initially be a map with two keys
+                   {:time          (js/Date.) ;; What it returns becomes the new application state
+                    :time-color    "#f88"
+                    :slider-val    0
+                    :current-song nil}))    ;; so the application state will initially be a map with two keys
 
 
 (rf/reg-event-db                ;; usage:  (dispatch [:time-color-change 34562])
@@ -24,3 +27,41 @@
                  :timer                         ;; every second an event of this kind will be dispatched
                  (fn [db [_ new-time]]          ;; note how the 2nd parameter is destructured to obtain the data value
                    (assoc db :time new-time)))  ;; compute and return the new application state
+
+(rf/reg-event-db
+ ::current-song
+ (fn [db [_ song]]
+   (-> db
+       (assoc :current-song song))))
+
+(rf/reg-event-db
+ ::slider-val
+ (fn [db [_ song]]
+   (-> db
+       (assoc :slider-val song))))
+
+(rf/reg-event-db
+ ::split-frame-at
+ (fn [db [_ frame-id ms]]
+   (-> db
+       (update-in [:current-song :frames]
+                  (fn [frames]
+                      (flatten
+                       (map (fn [frame]
+                              (if (= frame-id (:id frame))
+                                (lf/split-frame-at frame ms)
+                                frame))
+                            frames)))))))
+
+(rf/reg-event-db
+ ::delete-frame
+ (fn [db [_ frame-id]]
+   (-> db
+       (update-in [:current-song :frames]
+                  (fn [frames]
+                    (filter #(not= frame-id (:id %)) frames))))))
+
+(rf/reg-event-db
+ ::set-val
+ (fn [db [_ k v]]
+   (-> db (assoc k v))))

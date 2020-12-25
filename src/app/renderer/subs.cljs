@@ -14,3 +14,32 @@
   (fn [db _]
     (:time-color db)))
 
+(rf/reg-sub
+ ::current-song
+ (fn [db _]
+   (:current-song db)))
+(rf/reg-sub
+ ::slider-val
+ (fn [db _]
+   (:slider-val db)))
+
+(rf/reg-sub
+ ::frame-by-id
+ :<- [::current-song]
+ (fn [song [_ frame-id]]
+   (->> song
+        :frames
+        (filter #(= frame-id (:id %)))
+        first)))
+
+
+(rf/reg-sub
+ ::lyrics-event-by-id
+ (fn [[_ frame-id _]]
+   (rf/subscribe [::frame-by-id frame-id]))
+ (fn [frame [_ _ evt-id]]
+   (->> frame
+        :events
+        (filter #(= evt-id (:id %)))
+        (first))))
+

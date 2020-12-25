@@ -1,0 +1,16 @@
+
+@import '../../node_modules/bootstrap/scss/bootstrap';
+@import 're-com';
+
+.logos img {
+  width: 100px;
+  margin-left: 5px;
+}
+
+input[type=range] {
+    width: 100%
+}
+
+.active {
+    font-weight: bolder;
+}
