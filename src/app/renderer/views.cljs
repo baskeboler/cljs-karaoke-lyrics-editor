@@ -1,7 +1,7 @@
 (ns app.renderer.views
   (:require [reagent.core  :as reagent :refer [atom]]
             [re-com.core :as recom]
-            [re-frame.core :as rf :refer [subscribe dispatch]]
+            [re-frame.core :as rf]
             [clojure.string :as str]
             [cljs.reader :as cljsreader]
             [cljs.core.async :as async]
@@ -116,9 +116,10 @@
 
 ;; (defn split-frame-at-event [evt])
 
-(defn evt-row-editor [f evt on-submit on-cancel]
-  (let [temp-event (atom evt)]
-    (fn [f evt on-submit on-cancel]
+(defn evt-row-editor [f evt-id on-submit on-cancel]
+  (let [evt-sub (rf/subscribe [::subs/lyrics-event-by-id (:id f) evt-id])
+        temp-event (atom @evt-sub)]
+    (fn [f evt-id on-submit on-cancel]
       [:tr
        [:td
         [recom/slider
@@ -140,30 +141,31 @@
            :md-icon-name "zmdi-close"
            :on-click on-cancel]]]]])))
 
-(defn evt-row [f evt]
-  (let [editing? (atom false)
+(defn evt-row [f evt-id]
+  (let [evt-sub (rf/subscribe [::subs/lyrics-event-by-id (:id f) evt-id])
+        editing? (atom false)
         on-cancel-edit (fn [] (reset! editing? false))
         on-submit-edit (fn [new-val]
                          (rf/dispatch-sync
                           [::evts/update-lyrics-event
                            (:id f)
-                           (:id evt)
+                           evt-id
                            new-val])
                          (reset! editing? false))]
     
                          
     (fn []
       (if @editing?
-        [evt-row-editor f evt on-submit-edit on-cancel-edit]
+        [evt-row-editor f evt-id on-submit-edit on-cancel-edit]
         [:tr
-         [:td (offset evt)]
-         [:td (protocols/get-text evt)]
+         [:td (offset @evt-sub)]
+         [:td (protocols/get-text @evt-sub)]
          [:td
           [recom/h-box
            :children
            [[recom/md-icon-button 
              :md-icon-name "zmdi-format-valign-top"
-             :on-click #(rf/dispatch [::evts/split-frame-at (:id f) (:offset evt)])]
+             :on-click #(rf/dispatch [::evts/split-frame-at (:id f) (:offset @evt-sub)])]
             [recom/md-icon-button
              :md-icon-name "zmdi-edit"
              :on-click #(reset! editing? true)]]]]]))))
@@ -190,9 +192,7 @@
         (for [evt (:events @(rf/subscribe [::subs/frame-by-id (:id f)]))
               :let [evt-id (:id evt)]]
           ^{:key (str "event-" evt-id)}
-          [evt-row f @(rf/subscribe [::subs/lyrics-event-by-id
-                                     (:id f)
-                                     evt-id])]))]]]]])
+          [evt-row f evt-id]))]]]]]) 
 
 (defn ^:export ui
   []

@@ -43,3 +43,8 @@
         (filter #(= evt-id (:id %)))
         (first))))
 
+(rf/reg-sub
+ ::select-value
+ (fn [db [_  & others]]
+   (get-in db others)))
+       
