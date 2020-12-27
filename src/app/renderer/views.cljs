@@ -15,9 +15,13 @@
             [clj-karaoke.lyrics-event :as le]
             [goog.string :as gstr :refer [format]]
             [app.renderer.components :as comps]))
+            ;; ["electron" :as electron :refer [ipcRenderer]]))
 (spec/check-asserts false)
 ;; -- Domino 5 - View Functions ----------------------------------------------
-;; (def current-song (atom nil))
+
+(extend-protocol protocols/PSong
+  nil
+  (get-song-length [this] 0))
 (defn clock
   []
   [recom/title
@@ -67,7 +71,7 @@
   (/ ms 1000.0))
 
 (defn frame-list []
-  [:table.table.table-responsive.table-striped
+  [:div.table-responsive>table.table.table-striped
    [:thead
     [:tr
      [:th "id"] [:th "offset"] [:th "length"] [:th "text"]]]
@@ -77,131 +81,173 @@
            :when (>= (protocols/get-offset f)
                      @(rf/subscribe [:app.renderer.subs/slider-val]))]
        ^{:key (hash f)}
-       [:tr {:class (when (= f @selected-frame) "active")
+       [:tr {:class (when (= f @selected-frame) "table-active")
              :on-click #(reset! selected-frame f)}
         [:td (:id f)]
         [:td (format "%1.2f s"
                      (/ (protocols/get-offset f) 1000.0))]
         [:td (format "%1.2f" (-> (frame-length-ms f) ms->s))]
         [:td (protocols/get-text f)]
-        [:td 
-         [recom/button
-          :label "delete"
-          :on-click #(rf/dispatch [::evts/delete-frame (:id f)])
-          :class "btn-danger"]]]))]])
+        [:td
+         [recom/md-icon-button
+          :md-icon-name "zmdi-delete"
+          :size :regular
+          :on-click #(rf/dispatch [::evts/delete-frame (:id f)])]]]))]])
+          ;; :class "btn-danger"]]]))]])
+
+(defn frame-list-card []
+  [comps/card
+   :title "Frame List"
+   :body [frame-list]])
+
 (defn expand-frame [f]
   [:ul
    (doall
     (for [e (:events f)]
       [:li (protocols/get-text e)]))])
 
-(defn color-input
-  []
-  [:div.color-input
-   "Time color: "
-   [:input {:type "color"
-
-            :value @(rf/subscribe [:time-color])
-            :on-change #(rf/dispatch [:time-color-change (-> % .-target .-value)])}]])  ;; <---
 (def slider-val (atom 0))
 (def selected-frame (atom nil))
 
 (defn offset [f]
   (format "%1.2f" (-> (protocols/get-offset f) ms->s)))
 (defn frame-length-s [f]
-  (format "%1.2f" (-> (frame-length-ms) ms->s)))
+  (format "%1.2f" (-> f (frame-length-ms) ms->s)))
 
 ;; (defn split-frame-at-event [evt])
-  
+
+(defn evt-row-editor [f evt on-submit on-cancel]
+  (let [temp-event (atom evt)]
+    (fn [f evt on-submit on-cancel]
+      [:tr
+       [:td
+        [recom/slider
+         :min 0
+         :max (lf/frame-ms-duration f)
+         :model (:offset @temp-event)
+         :on-change #(swap! temp-event assoc :offset %)]]
+       [:td
+        [recom/input-text
+         :model (:text @temp-event)
+         :on-change #(swap! temp-event assoc :text %)]]
+       [:td
+        [recom/h-box
+         :children
+         [[recom/md-icon-button
+           :md-icon-name "zmdi-check"
+           :on-click #(on-submit @temp-event)]
+          [recom/md-icon-button
+           :md-icon-name "zmdi-close"
+           :on-click on-cancel]]]]])))
 
 (defn evt-row [f evt]
-  [recom/h-box
-   :children
-   [[recom/label :label (offset evt)]
-    [recom/gap :size "1"]
-    [recom/label :label (protocols/get-text evt)]
-    [recom/gap :size "1"]
-    [recom/button :label "split frame here" :on-click #(rf/dispatch [::evts/split-frame-at (:id f) (:offset evt)])]]])
+  (let [editing? (atom false)
+        on-cancel-edit (fn [] (reset! editing? false))
+        on-submit-edit (fn [new-val]
+                         (rf/dispatch-sync
+                          [::evts/update-lyrics-event
+                           (:id f)
+                           (:id evt)
+                           new-val])
+                         (reset! editing? false))]
     
-(defn frame-editor [f]
-  [recom/border
-   :margin "15px"
-   :child
-   [recom/v-box
-    :size "auto"
-    :children
-    [[recom/h-box
-      :children [[recom/label :label "offset"]
-                 [recom/gap :size "1"]
-                 [recom/label :label (offset f)]]]
-     [recom/h-box
-      :children [[recom/label :label "length"]
-                 [recom/gap :size "1"]
-                 [recom/label :label (frame-length-s f)]]]
-     [recom/h-box
-      :children
-      [[recom/label :label "text"]
-       [recom/gap :size "1"]
-       [recom/label :label (protocols/get-text f)]]]
-     [recom/title :label "events" :level :level2]
-     [recom/v-box
-      :children
-      ;; (into []
-      (doall
-       (for [evt (:events @(rf/subscribe [::subs/frame-by-id (:id f)]))]
-          [evt-row f evt]))]]]])
+                         
+    (fn []
+      (if @editing?
+        [evt-row-editor f evt on-submit-edit on-cancel-edit]
+        [:tr
+         [:td (offset evt)]
+         [:td (protocols/get-text evt)]
+         [:td
+          [recom/h-box
+           :children
+           [[recom/md-icon-button 
+             :md-icon-name "zmdi-format-valign-top"
+             :on-click #(rf/dispatch [::evts/split-frame-at (:id f) (:offset evt)])]
+            [recom/md-icon-button
+             :md-icon-name "zmdi-edit"
+             :on-click #(reset! editing? true)]]]]]))))
 
-(defn ui
+(defn frame-editor [f]
+  [comps/card
+   :title (str "Frame " (:id f))
+   :body
+   [recom/v-box
+    :children
+    [[:dl
+      [:dt "offset"]
+      [:dd (offset f)]
+      [:dt "length"]
+      [:dd (frame-length-s f)]
+      [:dt "text"]
+      [:dd (protocols/get-text f)]]
+     [recom/title :label "events" :level :level2]
+     [:div.table-responsive>table.table
+      [:thead>tr
+       [:th "offset"] [:th "text"] [:th "actions"]]
+      [:tbody
+       (doall
+        (for [evt (:events @(rf/subscribe [::subs/frame-by-id (:id f)]))
+              :let [evt-id (:id evt)]]
+          ^{:key (str "event-" evt-id)}
+          [evt-row f @(rf/subscribe [::subs/lyrics-event-by-id
+                                     (:id f)
+                                     evt-id])]))]]]]])
+
+(defn ^:export ui
   []
-  [:div
-   "阿斗:"]
   [recom/v-box
    :padding "1em"
    :children
-   
-   [[recom/title :level :level1 :label "Hello world, it is now"]
+   [;[recom/title :level :level1 :label "Hello world, it is now"]
     [comps/card
-     :title "my card"
+     :title "Load File"
      :body
      [recom/h-box
       :children [[recom/box
                   :size "auto"
-                  :child [file-select]]
-                 [recom/box
-                  :size "auto"
-                  :child [clock]]
-                 [recom/box
-                  :size "auto"
-                  :child [color-input]]]]]
+                  :child [file-select]]]]]
+                 ;; [recom/box
+                 ;;  :size "auto"
+                 ;;  :child [clock]]
+                 ;; [recom/box
+                 ;;  :size "auto"
+                 ;;  :child [color-input]]]]]
     (when-not (nil? @(rf/subscribe [:app.renderer.subs/current-song]))
-      [recom/v-box
-       :children
-       [[recom/h-box
-         :margin "4"
-         :children [[recom/gap :size "1"]
-                    [recom/button
-                     :class "btn-lg btn-primary"
-                     :on-click #(rf/dispatch [:app.renderer.events/current-song nil])
-                     :label "clear song"]
-                    [recom/gap :size "1"]
-                    (when @selected-frame
-                      [recom/button
-                       :class "btn-lg btn-warning"
-                       :on-click #(reset! selected-frame nil)
-                       :label "clear selected frame"])
-                    [recom/gap :size "1"]]]
-        
-        [recom/label
-         :label (format "%1.2fs"
-                        (/ @(rf/subscribe [:app.renderer.subs/slider-val])
-                           1000.0))]
-        [recom/slider
-         :min       0
-         :max       (protocols/get-song-length @(rf/subscribe [:app.renderer.subs/current-song]))
-         :model     (rf/subscribe [:app.renderer.subs/slider-val])
-         :on-change #(rf/dispatch-sync [:app.renderer.events/slider-val (double %)])]
-        [file-display]
-        (when @selected-frame
-          [frame-editor @selected-frame])
-        [recom/scroller
-         :child [frame-list]]]])]])
+
+      [comps/card
+       :title "Controls"
+       :body
+       [recom/v-box
+        :children
+        [[recom/h-box
+          :margin "1em 0"
+          :children [[recom/button
+                      :class "btn-primary"
+                      :style {:border-radius 0}
+                      :on-click #(rf/dispatch [:app.renderer.events/current-song nil])
+                      :label "clear song"]
+                     (when @selected-frame
+                       [recom/button
+                        :class "btn-warning"
+                        :style {:border-radius 0}
+                        :on-click #(reset! selected-frame nil)
+                        :label "clear selected frame"])
+                     [recom/gap :size "1"]]]
+
+         [recom/label
+          :label (format "%1.2fs"
+                         (/ @(rf/subscribe [:app.renderer.subs/slider-val])
+                            1000.0))]
+         [recom/slider
+          :min       0
+          :max       (protocols/get-song-length @(rf/subscribe [:app.renderer.subs/current-song]))
+          :model     (rf/subscribe [:app.renderer.subs/slider-val])
+          :on-change #(rf/dispatch-sync [:app.renderer.events/slider-val (double %)])]
+         [file-display]]]])
+    (when @selected-frame
+      [frame-editor @selected-frame])
+    ;; (when @selected-frame
+      ;; [recom/scroller
+       ;; :child
+    [frame-list-card]]])

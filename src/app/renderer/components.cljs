@@ -9,8 +9,8 @@
   [recom/border
    :radius "0.5em"
    :padding "0.5em"
-   :style {:box-shadow "5px 2px 100px 5px black"}
-
+   :style {:box-shadow "5px 2px 100px 3px lightgrey"
+           :margin-bottom "1em"}
    :child
    [recom/v-box
     :children

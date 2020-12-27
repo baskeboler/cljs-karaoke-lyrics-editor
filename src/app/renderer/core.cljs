@@ -1,20 +1,13 @@
 (ns app.renderer.core
-  (:require [reagent.core :refer [atom]]
+  (:require [cljs.nodejs :as nodejs]
+            [reagent.core]
             [reagent.dom :refer [render]]
             [re-frame.core :as rf]
-            ;; [cljs.tools.reader :as reader]
-            ;; [clojure.string :as cstr]
-            ;; ["devtron" :as devtron]
             [app.renderer.subs]
             [app.renderer.events]
             [app.renderer.db]
             [app.renderer.views :refer [ui]]))
-;; [cljs.core.async :as a]))
-            ;; ["electron" :as electron]))
-;; (defonce electron (js/require "electron"))
-;; (defonce nedb (js/require "nedb"))
 
-;; (.install ^js devtron)       ;; we love https://github.com/binaryage/c  js-devtools)
 
 (enable-console-print!)
 
@@ -25,15 +18,26 @@
 ;;           song-map (reader/read-stri,sNng data)]
 ;;       song-map)))
 
-
-;; (def ^js ipc-renderer (-> electron (.-ipcRenderer)))
+(defonce electron ^js (nodejs/require "electron"))
+                             
+(defonce ^js ipc-renderer (-> electron (.-ipcRenderer)))
 
 ;; -- Entry Point -------------------------------------------------------------
 
 (defn ^:export init!
   []
   (rf/dispatch-sync [:initialize])
-  (render [app.renderer.views/ui]
+  (render [ui]
           (js/document.getElementById "app-container")))
 
-(init!)
+
+;; (init!)
+
+(defn ^:export select-file []
+  (.. ^js ipc-renderer
+      (invoke "open-karaoke-file")
+      (then #(.log js/console "invoked main fn"))
+      (catch #(.log js/console "failed to invoke main fn"))))
+
+
+(def ^:export start init!)

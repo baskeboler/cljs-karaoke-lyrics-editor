@@ -1,6 +1,7 @@
 
 @import '../../node_modules/bootstrap/scss/bootstrap';
-@import 're-com';
+@import './re-com';
+
 
 .logos img {
   width: 100px;
@@ -13,4 +14,8 @@ input[type=range] {
 
 .active {
     font-weight: bolder;
+}
+
+dt {
+    text-transform: uppercase;
 }
