@@ -98,3 +98,27 @@
  ::pop-modal
  (fn [db _]
    (update db :modals rest)))
+
+(rf/reg-event-fx
+ ::inc-playback-position
+ (fn [{:keys [db]} _]
+   {:db (if (:playing? db)
+          (-> db
+              (update :playback-position + 100))
+          db)
+    :fx [(when (:playing? db)
+           [:dispatch-later {:ms 100 :dispatch [::inc-playback-position]}])]}))
+
+(rf/reg-event-fx
+ ::start-playback
+ (fn [{:keys [db]} _]
+   {:db
+    (-> db
+        (assoc :playing? true
+               :playback-position 0))
+    :fx [[:dispatch-later {:ms 100 :dispatch [::inc-playback-position]}]]}))
+
+(rf/reg-event-db
+ ::stop-playback
+ (fn [db _]
+   (assoc db :playing? false)))

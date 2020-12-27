@@ -14,7 +14,8 @@
             [clj-karaoke.lyrics-frame :as lf]
             [clj-karaoke.lyrics-event :as le]
             [goog.string :as gstr :refer [format]]
-            [app.renderer.components :as comps]))
+            [app.renderer.components :as comps]
+            [app.renderer.player :as player]))
             ;; ["electron" :as electron :refer [ipcRenderer]]))
 (spec/check-asserts false)
 ;; -- Domino 5 - View Functions ----------------------------------------------
@@ -22,16 +23,6 @@
 (extend-protocol protocols/PSong
   nil
   (get-song-length [this] 0))
-(defn clock
-  []
-  [recom/title
-   :level :level2
-   :style {:color @(rf/subscribe [:time-color])}
-   :label
-   (-> @(rf/subscribe [:time])
-       .toTimeString
-       (str/split " ")
-       first)])
 
 (defn load-lyrics-file [evt]
   (let [ret (async/chan)
@@ -122,11 +113,15 @@
     (fn [f evt-id on-submit on-cancel]
       [:tr
        [:td
-        [recom/slider
-         :min 0
-         :max (lf/frame-ms-duration f)
-         :model (:offset @temp-event)
-         :on-change #(swap! temp-event assoc :offset %)]]
+        [recom/h-box
+         :children
+         [[recom/label :label (/  (:offset @temp-event) 1000.0)]
+          [recom/gap :size "1"]
+          [recom/slider
+           :min 0
+           :max (lf/frame-ms-duration f)
+           :model (:offset @temp-event)
+           :on-change #(swap! temp-event assoc :offset %)]]]]
        [:td
         [recom/input-text
          :model (:text @temp-event)
@@ -135,9 +130,11 @@
         [recom/h-box
          :children
          [[recom/md-icon-button
+           :style {:color "green"}
            :md-icon-name "zmdi-check"
            :on-click #(on-submit @temp-event)]
           [recom/md-icon-button
+           :style {:color "red"}
            :md-icon-name "zmdi-close"
            :on-click on-cancel]]]]])))
 
@@ -204,16 +201,28 @@
      :title "Load File"
      :body
      [recom/h-box
+      :align :center
       :children [[recom/box
                   :size "auto"
-                  :child [file-select]]]]]
-                 ;; [recom/box
-                 ;;  :size "auto"
-                 ;;  :child [clock]]
-                 ;; [recom/box
-                 ;;  :size "auto"
-                 ;;  :child [color-input]]]]]
-    (when-not (nil? @(rf/subscribe [:app.renderer.subs/current-song]))
+                  :child [file-select]]
+                 [recom/gap :size "a"]
+                 [recom/md-icon-button
+                  :md-icon-name (if @(rf/subscribe [::subs/select-value :playing?])
+                                  "zmdi-pause"
+                                  "zmdi-play")
+                  :size :larger
+                  :on-click #(rf/dispatch [(if @(rf/subscribe [::subs/select-value :playing?])
+                                             ::evts/stop-playback
+                                             ::evts/start-playback)])]
+                 [recom/gap :size "1"]
+                 [recom/title
+                  :level :level1
+                  :label @(rf/subscribe [::subs/select-value :playback-position])]]]]
+    (when-not (nil? @(rf/subscribe [::subs/current-song]))
+      [comps/card
+       :title "Player"
+       :body [player/player-panel]])
+    (when-not (nil? @(rf/subscribe [::subs/current-song]))
 
       [comps/card
        :title "Controls"
